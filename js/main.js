@@ -3,6 +3,10 @@
 var canvas;
 var engine; // varibale or obj that deal with the low level webgl
 var scene; // render something on your screen
+var isWPressed = false;
+var isSPressed = false;
+var isAPressed = false;
+var isDPressed = false;
 document.addEventListener("DOMContentLoaded", startGame);
 
 function startGame() {
@@ -15,15 +19,13 @@ function startGame() {
     scene = createScene(); // creating a scene that is happening in window
     modifySettings();
     var tank = scene.getMeshByName("HeroTank");
-    engine.runRenderLoop(function(){
-        var yMovement = 0;
-        // console.log(tank.position.y);
-        if(tank.position.y >2) {
-            yMovement = -1;
-        } // so that tank will not rise up the gorund along the wall when colloision occurs
-        tank.moveWithCollisions(new BABYLON.Vector3(0,yMovement,1));// parameters=> velocities in x y z direction
+    
+    var toRender = function(){
+        tank.move();
         scene.render();
-    });
+    }
+    
+    engine.runRenderLoop(toRender);
 }
 
 var createScene = function(){
@@ -109,14 +111,78 @@ function modifySettings() {
     }
 }
 
+document.addEventListener("keydown", function(event) {
+    if(event.key=='w' || event.key=='W') {
+        isWPressed=true;
+    }
+
+    if(event.key=='s' || event.key=='S') {
+        isSPressed=true;
+    }
+
+    if(event.key=='a' || event.key=='A') {
+        isAPressed=true;
+    }
+
+    if(event.key=='d' || event.key=='D') {
+        isDPressed=true;
+    }
+});
+
+document.addEventListener("keyup", function(event) {
+    if(event.key=='w' || event.key=='W') {
+        isWPressed=false;
+    }
+
+    if(event.key=='s' || event.key=='S') {
+        isSPressed=false;
+    }
+
+    if(event.key=='a' || event.key=='A') {
+        isAPressed=false;
+    }
+
+    if(event.key=='d' || event.key=='D') {
+        isDPressed=false;
+    }
+});
+
 function createTank(scene) {
     var tank = new BABYLON.MeshBuilder.CreateBox("HeroTank", {height: 1, depth: 6, width: 6}, scene); // create a tank
     var tankMaterial = new BABYLON.StandardMaterial("tankMaterial", scene);
     tankMaterial.diffuseColor = new BABYLON.Color3.Red;
     tankMaterial.emissiveColor = new BABYLON.Color3.Blue;
     tank.material = tankMaterial; // giving material and color
-    
     tank.position.y += 2;
+    tank.speed = 1;
+    tank.frontVector = new BABYLON.Vector3(0, 0, 1);
+    tank.move = function() {
+        var yMovement = 0;
+        // console.log(tank.position.y);
+        if(tank.position.y >2) {
+            yMovement = -2;
+        } // so that tank will not rise up the gorund along the wall when colloision occurs
+        // tank.moveWithCollisions(new BABYLON.Vector3(0,yMovement,1));// parameters=> velocities in x y z direction
+
+        if(isWPressed) {
+            tank.moveWithCollisions(tank.frontVector.multiplyByFloats(tank.speed, tank.speed, tank.speed));
+        }
+
+        if(isSPressed) {
+            tank.moveWithCollisions(tank.frontVector.multiplyByFloats(-1*tank.speed, -1*tank.speed, -1*tank.speed));
+        }
+
+        if(isAPressed) {
+            tank.rotation.y -= .1;
+            tank.frontVector=new BABYLON.Vector3(Math.sin(tank.rotation.y), 0, Math.cos(tank.rotation.y));
+        }
+
+        if(isDPressed) {
+            tank.rotation.y += .1;
+            tank.frontVector=new BABYLON.Vector3(Math.sin(tank.rotation.y), 0, Math.cos(tank.rotation.y));
+
+        }
+    }
     return tank;
 }
 
