@@ -37,6 +37,14 @@ var createScene = function(){
     scene.activeCamera = followCamera; // camera is followcamera now
     createLights(scene);
 
+    BABYLON.SceneLoader.ImportMesh("him", "../models/Dude/", "Dude.babylon", scene, onDudeImported); // importing the mesh parameters=> mesh name, location, name of file, scene, onSuccess function
+
+    function onDudeImported (newMeshes, particleSystems, skeletons) {
+
+        newMeshes[0].position = new BABYLON.Vector3(0, 0, 5);  // The original dude
+        scene.beginAnimation(skeletons[0], 0, 120, true, 1.0); // animation of walking ==parameters=> skeleton part ou want to render animation, starting of keyframe, ending of keyframes, loopback, playbackspeed
+    }
+
     return scene;
 
 };
