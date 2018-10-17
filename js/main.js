@@ -9,6 +9,31 @@ var isAPressed = false;
 var isDPressed = false;
 document.addEventListener("DOMContentLoaded", startGame);
 
+class Dude {
+    constructor(dudeMesh,speed) {
+        this.dudeMesh=  dudeMesh;
+        dudeMesh.Dude = this;
+        if(speed) {
+            this.speed = speed;
+        }
+        else {
+            this.speed = 1;
+        }
+    }
+
+    move() {
+        var tank = scene.getMeshByName("heroTank");
+        var direction = tank.position.subtract(this.dudeMesh.position);
+        var distance = direction.length();
+        var dir = direction.normalize();
+        var alpha = Math.atan2(-1*dir.x, -1*dir.z);
+        this.dudeMesh.rotation.y = alpha;
+        if(distance>30) {
+            this.dudeMesh.moveWithCollisions(dir.multiplyByFloats(this.speed, this.speed, this.speed)); // if distance between dude and tank is greater 30, move the dude towards the tank
+        }
+}
+}
+
 function startGame() {
     canvas = document.getElementById("renderCanvas");
     canvas.style.widths = "1800px";
@@ -18,10 +43,14 @@ function startGame() {
     canvas.style.height = '100%';
     scene = createScene(); // creating a scene that is happening in window
     modifySettings();
-    var tank = scene.getMeshByName("HeroTank");
+    var tank = scene.getMeshByName("heroTank");
     
     var toRender = function(){
         tank.move();
+        var heroDude = scene.getMeshByName("heroDude");
+        if(heroDude) {
+            heroDude.Dude.move();
+        }
         scene.render();
     }
     
@@ -36,14 +65,7 @@ var createScene = function(){
     var followCamera = createFollowCamera(scene, tank);
     scene.activeCamera = followCamera; // camera is followcamera now
     createLights(scene);
-
-    BABYLON.SceneLoader.ImportMesh("him", "../models/Dude/", "Dude.babylon", scene, onDudeImported); // importing the mesh parameters=> mesh name, location, name of file, scene, onSuccess function
-
-    function onDudeImported (newMeshes, particleSystems, skeletons) {
-
-        newMeshes[0].position = new BABYLON.Vector3(0, 0, 5);  // The original dude
-        scene.beginAnimation(skeletons[0], 0, 120, true, 1.0); // animation of walking ==parameters=> skeleton part ou want to render animation, starting of keyframe, ending of keyframes, loopback, playbackspeed
-    }
+    createHeroDude(scene);
 
     return scene;
 
@@ -156,7 +178,7 @@ document.addEventListener("keyup", function(event) {
 });
 
 function createTank(scene) {
-    var tank = new BABYLON.MeshBuilder.CreateBox("HeroTank", {height: 1, depth: 6, width: 6}, scene); // create a tank
+    var tank = new BABYLON.MeshBuilder.CreateBox("heroTank", {height: 1, depth: 6, width: 6}, scene); // create a tank
     var tankMaterial = new BABYLON.StandardMaterial("tankMaterial", scene);
     tankMaterial.diffuseColor = new BABYLON.Color3.Red;
     tankMaterial.emissiveColor = new BABYLON.Color3.Blue;
@@ -193,6 +215,25 @@ function createTank(scene) {
     }
     return tank;
 }
+
+function createHeroDude(scene) {
+    BABYLON.SceneLoader.ImportMesh("him", "../models/Dude/", "Dude.babylon", scene, onDudeImported); // importing the mesh parameters=> mesh name, location, name of file, scene, onSuccess function
+
+    function onDudeImported (newMeshes, particleSystems, skeletons) {
+
+        newMeshes[0].position = new BABYLON.Vector3(0, 0, 5);  // The original dude
+        newMeshes[0].name = "heroDude"; // changing the name of dude
+        var heroDude = newMeshes[0];
+        heroDude.scaling = new BABYLON.Vector3(.2,.2,.2);
+        heroDude.speed = 2;
+        scene.beginAnimation(skeletons[0], 0, 120, true, 1.0); // animation of walking ==parameters=> skeleton part ou want to render animation, starting of keyframe, ending of keyframes, loopback, playbackspeed
+        
+        var hero = new Dude(heroDude,2);
+        }
+    }
+
+
+
 
 window.addEventListener("resize", function () {
     canvas.style.width = "1800px";
