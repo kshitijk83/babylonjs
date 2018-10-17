@@ -51,6 +51,11 @@ function startGame() {
         if(heroDude) {
             heroDude.Dude.move();
         }
+        if(scene.dudes) {
+            for(var q=0; q<scene.dudes.length; q++) {
+                scene.dudes[q].Dude.move();
+            }
+        }
         scene.render();
     }
     
@@ -229,10 +234,50 @@ function createHeroDude(scene) {
         scene.beginAnimation(skeletons[0], 0, 120, true, 1.0); // animation of walking ==parameters=> skeleton part ou want to render animation, starting of keyframe, ending of keyframes, loopback, playbackspeed
         
         var hero = new Dude(heroDude,2);
+
+        scene.dudes = [];
+        for(var q=0; q<10; q++) {
+            scene.dudes[q] = DoClone(heroDude, skeletons, q);
+            scene.beginAnimation(scene.dudes[q].skeleton, 0, 120, true, 1.0); // animating the dudes
+            var temp = new Dude(scene.dudes[q], 2);
+        }
         }
     }
 
+function DoClone(original, skeletons, id) { // making dude clones
+    var myClone;
+    var xrand = Math.floor(Math.random()*501 - 250);
+    var zrand = Math.floor(Math.random()*501 - 250);
 
+    myClone = original.clone("clone_"+id);
+    myClone.position = new BABYLON.Vector3(xrand, 0, zrand);
+
+    if(!skeletons) {
+        return myClone;
+    } else {
+        if(!original.getChildren()) {
+            myClone.skeleton = skeleton[0].clone("clone_"+id+"_skeleton");
+            return myClone;
+        } else {
+            if(skeletons.length==1){ // only one skeleton controlling all dudes/children
+                var clonedSkeleton = skeletons[0].clone("clone_"+id+"_skeleton");
+                myClone.skeleton = clonedSkeleton;
+                var numChildren = myClone.getChildren().length;
+                for(var i=0; i<numChildren;i++) {
+                    myClone.getChildren()[i].skeleton = clonedSkeleton;
+                }
+                return myClone;
+            } else if(skeleton.length==original.getChildren().length) { // all children has its own skeleton
+                for(var i=0; i<myClone.getChildren().length; i++){
+                    myClone.getChildren()[i].skeleton = skeletons[i].clone("clone_"+id+"_skeleton_"+i);
+                    return myClone;
+                }
+            }
+        }
+    }
+
+    return myClone;
+}
 
 
 window.addEventListener("resize", function () {
