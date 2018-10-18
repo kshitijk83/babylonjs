@@ -1,4 +1,5 @@
 /// <reference path="babylon.max.js" />
+/// <reference path="cannon.js" />
 
 var canvas;
 var engine; // varibale or obj that deal with the low level webgl
@@ -7,6 +8,7 @@ var isWPressed = false;
 var isSPressed = false;
 var isAPressed = false;
 var isDPressed = false;
+var isBPressed = false;
 document.addEventListener("DOMContentLoaded", startGame);
 
 class Dude {
@@ -123,7 +125,7 @@ class Dude {
 
 function startGame() {
     canvas = document.getElementById("renderCanvas");
-    canvas.style.widths = "1800px";
+    canvas.style.width = "1800px";
     canvas.style.height = "1200px";
     engine = new BABYLON.Engine(canvas, true); //draw on this specific canvas
     canvas.style.width = '100%';
@@ -134,15 +136,9 @@ function startGame() {
     
     var toRender = function(){
         tank.move();
-        var heroDude = scene.getMeshByName("heroDude");
-        if(heroDude) {
-            heroDude.Dude.move();
-        }
-        if(scene.dudes) {
-            for(var q=0; q<scene.dudes.length; q++) {
-                scene.dudes[q].Dude.move();
-            }
-        }
+        tank.fire();
+        moveHeroDude();
+        moveOtherDudes();
         scene.render();
     }
     
@@ -151,6 +147,7 @@ function startGame() {
 
 var createScene = function(){
     var scene = new BABYLON.Scene(engine);
+    scene.enablePhysics();
     var ground = createGround(scene);
     var freeCamera = createFreeCamera(scene);
     var tank = createTank(scene);
@@ -171,6 +168,9 @@ function createGround(scene) {
         ground.material = groundMaterial;
         // making obj groundMaterial(a standard material) and adding in the texture and putting it in ground.texture obj
         ground.checkCollisions = true;
+        ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground,
+            BABYLON.PhysicsImpostor.HeightmapImpostor, { mass: 0 }, scene);// parameters=> mesh, type, additional data like mass friction restitution, scene
+
     }
 
     return ground;
@@ -249,6 +249,10 @@ document.addEventListener("keydown", function(event) {
     if(event.key=='d' || event.key=='D') {
         isDPressed=true;
     }
+
+    if(event.key=='b' || event.key=='B') {
+        isBPressed=true;
+    }
 });
 
 document.addEventListener("keyup", function(event) {
@@ -266,6 +270,10 @@ document.addEventListener("keyup", function(event) {
 
     if(event.key=='d' || event.key=='D') {
         isDPressed=false;
+    }
+
+    if(event.key=='b' || event.key=='B') {
+        isBPressed=false;
     }
 });
 
@@ -305,6 +313,40 @@ function createTank(scene) {
 
         }
     }
+
+    tank.canFire = true;
+    tank.fire = function() {
+        var tank = this;
+        if(!isBPressed) return;
+        // to fire the tank after half seconds
+        if(!tank.canFire) return;
+        tank.canFire = false;
+
+        setTimeout(function(){
+            tank.canFire = true;
+        }, 500);
+
+        var cannonBall = new BABYLON.Mesh.CreateSphere("cannonBall", 32, 2, scene);
+        cannonBall.material = new BABYLON.StandardMaterial("Fire", scene);
+        cannonBall.material.diffuseTexture = new BABYLON.Texture("images/Fire.jpg", scene); // adding texture to cannonball
+        var pos = tank.position;
+
+        cannonBall.position = new BABYLON.Vector3(pos.x, pos.y+1, pos.z);
+        cannonBall.position.addInPlace(tank.frontVector.multiplyByFloats(5,5,5));
+
+        cannonBall.physicsImpostor = new BABYLON.PhysicsImpostor(cannonBall,
+            BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1 }, scene);// parameters=> name, type, addition data, scene
+
+        // adding impulse
+        var fVector = tank.frontVector;
+        var force = new BABYLON.Vector3(fVector.x*100, (fVector.y+.1)*100, fVector.z*100);
+        cannonBall.physicsImpostor.applyImpulse(force, cannonBall.getAbsolutePosition());
+
+        setTimeout(function() {
+            cannonBall.dispose(); // for deleting the cannonballs
+        }, 3000)
+    }
+
     return tank;
 }
 
@@ -363,6 +405,22 @@ function DoClone(original, skeletons, id) { // making dude clones
     }
 
     return myClone;
+}
+
+function moveHeroDude() {
+    var heroDude = scene.getMeshByName("heroDude");
+        if(heroDude) {
+            heroDude.Dude.move();
+        }
+}
+
+function moveOtherDudes() {
+    
+    if(scene.dudes) {
+        for(var q=0; q<scene.dudes.length; q++) {
+            scene.dudes[q].Dude.move();
+        }
+    }
 }
 
 
