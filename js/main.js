@@ -17,6 +17,7 @@ class Dude {
         this.dudeMesh=  dudeMesh;
         this.id = id;
         this.scene = scene;
+        this.health = 3;
         dudeMesh.Dude = this;
         if(speed) {
             this.speed = speed;
@@ -33,6 +34,10 @@ class Dude {
 
         if(Dude.boundingBoxParameters==undefined) {
             Dude.boundingBoxParameters = this.CalculateBoundingBoxParameters(); // this will create bounding box parameters for first dude and for other dudes it already has these parameters so it will skip it
+        }
+
+        if(Dude.particleSystem==undefined) {
+            Dude.particleSystem = this.createDudeParticleSystem(); // this will create bounding box parameters for first dude and for other dudes it already has these parameters so it will skip it
         }
 
         this.bounder = this.createBoundingBox();
@@ -121,6 +126,80 @@ class Dude {
 
         return {lengthX: _lengthX, lengthY: _lengthY, lengthZ: _lengthZ};
     }
+
+    createDudeParticleSystem() {
+        
+            // Create a particle system
+            var particleSystem = new BABYLON.ParticleSystem("particles", 2000, scene);
+        
+            //Texture of each particle
+            particleSystem.particleTexture = new BABYLON.Texture("../images/flare.png", scene);
+        
+            // Where the particles come from
+            particleSystem.emitter = new BABYLON.Vector3(0,0,0); // the starting object, the emitter
+        
+            // Colors of all particles
+            particleSystem.color1 = new BABYLON.Color4(1, 0, 0, 1.0);
+            particleSystem.color2 = new BABYLON.Color4(1, 0, 0, 1.0);
+            particleSystem.colorDead = new BABYLON.Color4(0, 0, 0, 0.0);
+        
+            // Emission rate
+            particleSystem.emitRate = 100;
+        
+            // Set the gravity of all particles
+            particleSystem.gravity = new BABYLON.Vector3(0, -9.81, 0);
+        
+            // Direction of each particle after it has been emitted
+            particleSystem.direction1 = new BABYLON.Vector3(0, -1, 0);
+            particleSystem.direction2 = new BABYLON.Vector3(0, -1, 0);
+
+
+        
+            return particleSystem;
+        }
+    
+    decreaseHealth(hitPoint) {
+        Dude.particleSystem.emitter = hitPoint;
+        this.health--;
+        Dude.particleSystem.start();
+
+        setTimeout(function() {
+            Dude.particleSystem.stop();
+        }, 300);
+
+        if(this.health<=0) {
+            this.gotKilled();
+        }
+    }
+
+    gotKilled() {
+        Dude.particleSystem.emitter = this.bounder.position;
+
+        // Emission rate
+        Dude.particleSystem.emitRate = 2000;
+    
+        Dude.particleSystem.minEmitBox = new BABYLON.Vector3(-1,0,1);
+        Dude.particleSystem.maxEmitBox = new BABYLON.Vector3(1,0,1);
+    
+        // Direction of each particle after it has been emitted
+        Dude.particleSystem.direction1 = new BABYLON.Vector3(0, 1, 0);
+        Dude.particleSystem.direction2 = new BABYLON.Vector3(0, -1, 0);
+
+        Dude.particleSystem.minEmitPower = 6;
+        Dude.particleSystem.maxEmitPower = 10;
+
+        Dude.particleSystem.start();
+
+        setTimeout(function() {
+            Dude.particleSystem.stop();
+        }, 500);
+
+
+        this.bounder.dispose();
+        this.dudeMesh.dispose();
+    }
+        
+    
 }
 
 
@@ -364,8 +443,9 @@ function createTank(scene) {
                     parameter: dude.Dude.bounder // dude's bounder as a second mesh
                 },
                 function() {
-                    dude.Dude.bounder.dispose();
-                    dude.dispose();
+
+                    if(dude.Dude.bounder._isDisposed) return;
+                    dude.Dude.gotKilled();
 
                 }
             ));
@@ -408,12 +488,12 @@ function createTank(scene) {
 
             if(pickInfo.pickedMesh) {
                 if(pickInfo.pickedMesh.name.startsWith("bounder")) {
-                    var bounder = pickInfo.pickedMesh;
-                    bounder.dudeMesh.dispose();
-                    bounder.dispose();
-                } else if (pickInfo.pickedMesh.name.startsWith("clone")) { // eliminating dude if the ray intersect with any of the submeshes
-                    var child = pickInfo.pickedMesh;
-                    child.parent.dispose();
+                    // var bounder = pickInfo.pickedMesh;
+                    pickInfo.pickedMesh.dudeMesh.Dude.decreaseHealth(pickInfo.pickedPoint);
+
+                } else if (pickInfo.pickedMesh.name.startsWith("clone_")) { // eliminating dude if the ray intersect with any of the submeshes
+                    // var child = pickInfo.pickedMesh;
+                    pickInfo.pickedMesh.child.parent.Dude.decreaseHealth(pickInfo.pickedPoint);
                 }
             }
         }
