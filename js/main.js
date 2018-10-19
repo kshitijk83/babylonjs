@@ -61,7 +61,7 @@ class Dude {
     }
 
     moveFPS() {
-        if(scene.activeCamera != scene.followCameraDude) {
+        if(scene.activeCamera != scene.followCameraDude && scene.activeCamera != scene.freeCameraDude) {
             this.dudeMesh.animatableObject.pause();
             return;
         }
@@ -72,33 +72,83 @@ class Dude {
             this.dudeMesh.animatableObject.pause();
         }
 
-        if(!this.bounder) return;
-        this.dudeMesh.position = new BABYLON.Vector3(this.bounder.position.x, this.bounder.position.y-this.scaling*Dude.boundingBoxParameters.lengthY/2, this.bounder.position.z);
-        var direction = this.frontVector;
-        var dir = direction.normalize();
-        var alpha = Math.atan2(-1*dir.x, -1*dir.z);
-        this.dudeMesh.rotation.y = alpha;
-        if(isWPressed) {
-            this.bounder.moveWithCollisions(dir.multiplyByFloats(this.speed, this.speed, this.speed)); // if distance between dude and tank is greater 30, move the dude towards the tank
+        if(scene.activeCamera==scene.followCameraDude) {
+            if(!this.bounder) return;
+            this.adjustYPosition();
+            this.adjustXZPosition();
+            var direction = this.frontVector;
+            var dir = direction.normalize();
+            var alpha = Math.atan2(-1*dir.x, -1*dir.z);
+            this.dudeMesh.rotation.y = alpha;
+            if(isWPressed) {
+                this.bounder.moveWithCollisions(dir.multiplyByFloats(this.speed, this.speed, this.speed)); // if distance between dude and tank is greater 30, move the dude towards the tank
+            }
+            
+            if(isSPressed) {
+                this.bounder.moveWithCollisions(dir.multiplyByFloats(-1*this.speed, -1*this.speed, -1*this.speed)); // if distance between dude and tank is greater 30, move the dude towards the tank
+            }
+
+            if(isDPressed) {
+                var alpha = this.dudeMesh.rotation.y;
+                alpha+=.1;
+                this.frontVector = new BABYLON.Vector3(-1*Math.sin(alpha), 0, -1*Math.cos(alpha));
+            }
+
+            if(isAPressed) {
+                var alpha = this.dudeMesh.rotation.y;
+                alpha-=.1;
+                this.frontVector = new BABYLON.Vector3(-1*Math.sin(alpha), 0, -1*Math.cos(alpha));
+            }
+            scene.freeCameraDude.position.x = this.bounder.position.x; // this for changing the position of freecamera dude if change the the position of the heroDude
+            scene.freeCameraDude.position.z = this.bounder.position.z;
+            scene.freeCameraDude.position.y = groundHeight+ this.scaling *Dude.boundingBoxParameters.lenghtY + .2;
+            scene.freeCameraDude.setTarget(scene.freeCameraDude.position.add(this.frontVector)); // to set the frontvector of the freecameraDude if we change the direction of herodude
+
+        }
+        else if(scene.activeCamera == scene.freeCameraDude)
+        {
+            var groundHeight = this.adjustYPosition();
+            this.adjustXZPosition();
+            scene.freeCameraDude.position.y = groundHeight + this.scaling *Dude.boundingBoxParameters.lengthY + .2;
+            var cameraFront = scene.freeCameraDude.getTarget().subtract(scene.freeCameraDude.position).normalize();
+            this.frontVector = cameraFront;
+            var dir = this.frontVector;
+            var alpha = Math.atan2(-1 * dir.x, -1 * dir.z);
+            this.dudeMesh.rotation.y = alpha; // this rotate the herodude mesh with the camera
+
+            this.bounder.position.x = scene.freeCameraDude.position.x;
+            this.bounder.position.z = scene.freeCameraDude.position.z;
+
         }
         
-        if(isSPressed) {
-            this.bounder.moveWithCollisions(dir.multiplyByFloats(-1*this.speed, -1*this.speed, -1*this.speed)); // if distance between dude and tank is greater 30, move the dude towards the tank
-        }
-
-        if(isDPressed) {
-            var alpha = this.dudeMesh.rotation.y;
-            alpha+=.1;
-            this.frontVector = new BABYLON.Vector3(-1*Math.sin(alpha), 0, -1*Math.cos(alpha));
-        }
-
-        if(isAPressed) {
-            var alpha = this.dudeMesh.rotation.y;
-            alpha-=.1;
-            this.frontVector = new BABYLON.Vector3(-1*Math.sin(alpha), 0, -1*Math.cos(alpha));
-        }
 
     }
+
+    adjustYPosition()
+    {
+        var origin = new BABYLON.Vector3(this.dudeMesh.position.x, 1000, this.dudeMesh.position.z);
+        var direction = new BABYLON.Vector3(0, -1, 0);
+        var ray = new BABYLON.Ray(origin, direction, 10000);
+        var pickInfo = scene.pickWithRay(ray, function (mesh)
+        {
+            if (mesh.name == "ground") return true;
+            return false;
+        });
+
+        var groundHeight = pickInfo.pickedPoint.y;
+        this.dudeMesh.position.y = groundHeight;
+        this.bounder.position.y = groundHeight + this.scaling * Dude.boundingBoxParameters.lengthY / 2.0;
+
+        return groundHeight;
+    }
+
+    adjustXZPosition()
+    {
+        this.dudeMesh.position.x = this.bounder.position.x;
+        this.dudeMesh.position.z = this.bounder.position.z;
+    }
+     // parameters=> origin of ray, direction of ray, length of ray
+
 
     createBoundingBox() {
         var lengthX = Dude.boundingBoxParameters.lengthX;
@@ -274,7 +324,6 @@ var createScene = function(){
     scene.assetsManager = configureAssetManager(scene);
     scene.enablePhysics();
     var ground = createGround(scene);
-    var freeCamera = createFreeCamera(scene);
     var tank = createTank(scene);
     scene.followCameraTank = createFollowCamera(scene, tank);
     scene.activeCamera = scene.followCameraTank; // camera is followcamera now
@@ -342,12 +391,12 @@ function configureAssetManager(scene) {
     return assetsManager;
 }
 
-function createFreeCamera(scene) {
-    var camera = new BABYLON.FreeCamera("freeCamera", new BABYLON.Vector3(0,0,0), scene); //parameters=> name, camera position vector, scene
+function createFreeCamera(scene, initialPosition) {
+    var camera = new BABYLON.FreeCamera("freeCamera", initialPosition, scene); //parameters=> name, camera position vector, scene
     camera.attachControl(canvas); // so that we can move camera
-    camera.position.y = 50;
     camera.checkCollisions = true; // any object can now cant penetrate this camera object
     camera.applyGravity = true; // apply gravity until collision occurs
+    camera.ellipsoid = new BABYLON.Vector3(.1,.1,.1);
     camera.keysUp.push('w'.charCodeAt(0));
     camera.keysUp.push('W'.charCodeAt(0));
     camera.keysDown.push('s'.charCodeAt(0));
@@ -357,6 +406,7 @@ function createFreeCamera(scene) {
     camera.keysLeft.push('a'.charCodeAt(0));
     camera.keysLeft.push('A'.charCodeAt(0));
 
+    return camera;
 }
 
 function createFollowCamera(scene, target) {
@@ -434,6 +484,10 @@ document.addEventListener("keydown", function(event) {
 
     if(event.key=='y' || event.key=='Y') {
         scene.activeCamera = scene.followCameraDude;
+    }
+
+    if(event.key=='u' || event.key=='U') {
+        scene.activeCamera = scene.freeCameraDude;
     }
 });
 
@@ -632,7 +686,11 @@ function createHeroDude(scene) {
             
             var hero = new Dude(heroDude, 2, -1, scene, .2);
             scene.followCameraDude = createFollowCamera(scene, heroDude); // created another follow camera for heroDude
-    
+            var freeCamPosition = new BABYLON.Vector3(heroDude.position.x,
+                heroDude.position.y + Dude.boundingBoxParameters.lengthY + .2
+                ,heroDude.position.z);
+            scene.freeCameraDude = createFreeCamera(scene, freeCamPosition);
+            console.log(scene.freeCameraDude);
             scene.dudes = [];
             scene.dudes[0] = heroDude;
             for(var q=1; q<=10; q++) {
