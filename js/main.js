@@ -173,6 +173,8 @@ class Dude {
     }
 
     gotKilled() {
+
+        scene.assets["dieSound"].play();
         Dude.particleSystem.emitter = this.bounder.position;
 
         // Emission rate
@@ -237,6 +239,7 @@ var createScene = function(){
     scene.activeCamera = followCamera; // camera is followcamera now
     createLights(scene);
     createHeroDude(scene);
+    loadSounds(scene);
 
     return scene;
 
@@ -263,7 +266,26 @@ function createLights(scene) {
 
 }
 
+function loadSounds(scene) {
+    var assetsManager = scene.assetsManager;
+    var binaryTask = assetsManager.addBinaryFileTask("laserSound", "../sounds/laser.wav");
+    binaryTask.onSuccess = function (task) {
+        scene.assets["laserSound"] = new BABYLON.Sound("laser", task.data, scene, null, { loop: false }); // null=> callback
+    }
+
+    binaryTask = assetsManager.addBinaryFileTask("cannonSound", "../sounds/cannon.wav");
+    binaryTask.onSuccess = function (task) {
+        scene.assets["cannonSound"] = new BABYLON.Sound("cannon", task.data, scene, null, { loop: false }); // null=> callback
+    }
+
+    binaryTask = assetsManager.addBinaryFileTask("dieSound", "../sounds/die.wav");
+    binaryTask.onSuccess = function (task) {
+    scene.assets["dieSound"] = new BABYLON.Sound("die", task.data, scene, null, { loop: false }); // null=> callback
+    }
+}
+
 function configureAssetManager(scene) {
+    scene.assets = {};
     var assetsManager = new BABYLON.AssetsManager(scene);
 
     assetsManager.onProgress = function(remainingCount, totalCount, lastFinishedTask) {
@@ -399,9 +421,10 @@ function createTank(scene) {
         var yMovement = 0;
         // console.log(tank.position.y);
         if(tank.position.y >2) {
-            tank.moveWithCollisions(new BABYLON.Vector3(0, -2, 0));
+            yMovement = -2;
         } // so that tank will not rise up the gorund along the wall when colloision occurs
         // tank.moveWithCollisions(new BABYLON.Vector3(0,yMovement,1));// parameters=> velocities in x y z direction
+        // tank.moveWithCollisions(new BABYLON.Vector3(0, -2, 0));
 
         if(isWPressed) {
             tank.moveWithCollisions(tank.frontVector.multiplyByFloats(tank.speed, tank.speed, tank.speed));
@@ -434,6 +457,8 @@ function createTank(scene) {
         setTimeout(function(){
             tank.canFireCannonballs = true;
         }, 500);
+
+        scene.assets["cannonSound"].play();
 
         var cannonBall = new BABYLON.Mesh.CreateSphere("cannonBall", 32, 2, scene);
         cannonBall.material = new BABYLON.StandardMaterial("Fire", scene);
@@ -483,6 +508,8 @@ function createTank(scene) {
         setTimeout(function(){
             tank.canFireLaser = true;
         }, 500);
+
+        scene.assets["laserSound"].play();
 
         var origin = tank.position;
         var direction = new BABYLON.Vector3(tank.frontVector.x, tank.frontVector.y+.1, tank.frontVector.z);
