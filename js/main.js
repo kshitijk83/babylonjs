@@ -44,7 +44,7 @@ class Dude {
         this.bounder.dudeMesh = this.dudeMesh;
     }
 
-    move() {
+    followTank() {
 
         if(!this.bounder) return;
         this.dudeMesh.position = new BABYLON.Vector3(this.bounder.position.x, this.bounder.position.y-this.scaling*Dude.boundingBoxParameters.lengthY/2, this.bounder.position.z);
@@ -57,6 +57,10 @@ class Dude {
         if(distance>30) {
             this.bounder.moveWithCollisions(dir.multiplyByFloats(this.speed, this.speed, this.speed)); // if distance between dude and tank is greater 30, move the dude towards the tank
         }
+    }
+
+    moveFPS() {
+
     }
 
     createBoundingBox() {
@@ -235,8 +239,8 @@ var createScene = function(){
     var ground = createGround(scene);
     var freeCamera = createFreeCamera(scene);
     var tank = createTank(scene);
-    var followCamera = createFollowCamera(scene, tank);
-    scene.activeCamera = followCamera; // camera is followcamera now
+    scene.followCameraTank = createFollowCamera(scene, tank);
+    scene.activeCamera = scene.followCameraTank; // camera is followcamera now
     createLights(scene);
     createHeroDude(scene);
     loadSounds(scene);
@@ -319,10 +323,19 @@ function createFreeCamera(scene) {
 }
 
 function createFollowCamera(scene, target) {
-    var camera = new BABYLON.FollowCamera("tankFollowCamera", target.position, scene, target);
-    camera.radius = 20; // how far from the object to follow
-    camera.heightOffset = 4; // how height above the object to place the camera
-    camera.rotationOffset = 180; // the viewing angle
+
+    var camera = new BABYLON.FollowCamera(target.name+"tankFollowCamera", target.position, scene, target);
+    
+    if(target.name=="heroDude"){
+        camera.radius = 40; // how far from the object to follow
+        camera.heightOffset = 10; // how height above the object to place the camera
+        camera.rotationOffset = 0; // the viewing angle
+    } else {
+        camera.radius = 20; // how far from the object to follow
+        camera.heightOffset = 4; // how height above the object to place the camera
+        camera.rotationOffset = 180; // the viewing angle
+    }
+    
     camera.cameraAcceleration = 0.5; // how fast to move
     camera.maxCameraSpeed = 50; // speed limit
     return camera;
@@ -376,6 +389,14 @@ document.addEventListener("keydown", function(event) {
 
     if(event.key=='r' || event.key=='R') {
         isRPressed=true;
+    }
+
+    if(event.key=='t' || event.key=='T') {
+        scene.activeCamera = scene.followCameraTank;
+    }
+
+    if(event.key=='y' || event.key=='Y') {
+        scene.activeCamera = scene.followCameraDude;
     }
 });
 
@@ -537,7 +558,7 @@ function createTank(scene) {
 
                 } else if (pickInfo.pickedMesh.name.startsWith("clone_")) { // eliminating dude if the ray intersect with any of the submeshes
                     // var child = pickInfo.pickedMesh;
-                    pickInfo.pickedMesh.child.parent.Dude.decreaseHealth(pickInfo.pickedPoint);
+                    pickInfo.pickedMesh.parent.Dude.decreaseHealth(pickInfo.pickedPoint);
                 }
             }
         }
@@ -569,6 +590,7 @@ function createHeroDude(scene) {
             scene.beginAnimation(skeletons[0], 0, 120, true, 1.0); // animation of walking ==parameters=> skeleton part ou want to render animation, starting of keyframe, ending of keyframes, loopback, playbackspeed
             
             var hero = new Dude(heroDude, 2, -1, scene, .2);
+            scene.followCameraDude = createFollowCamera(scene, heroDude); // created another follow camera for heroDude
     
             scene.dudes = [];
             scene.dudes[0] = heroDude;
@@ -645,15 +667,15 @@ function DoClone(original, skeletons, id) { // making dude clones
 function moveHeroDude() {
     var heroDude = scene.getMeshByName("heroDude");
         if(heroDude) {
-            heroDude.Dude.move();
+            heroDude.Dude.moveFPS();
         }
 }
 
 function moveOtherDudes() {
     
     if(scene.dudes) {
-        for(var q=0; q<scene.dudes.length; q++) {
-            scene.dudes[q].Dude.move();
+        for(var q=1; q<scene.dudes.length; q++) {
+            scene.dudes[q].Dude.followTank();
         }
     }
 }
