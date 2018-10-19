@@ -214,7 +214,7 @@ function startGame() {
     modifySettings();
     var tank = scene.getMeshByName("heroTank");
     
-    var toRender = function(){
+    scene.toRender = function(){
         tank.move();
         tank.fireCannonBalls();
         tank.fireLaserBeams();
@@ -223,11 +223,12 @@ function startGame() {
         scene.render();
     }
     
-    engine.runRenderLoop(toRender);
+    scene.assetsManager.load();
 }
 
 var createScene = function(){
     var scene = new BABYLON.Scene(engine);
+    scene.assetsManager = configureAssetManager(scene);
     scene.enablePhysics();
     var ground = createGround(scene);
     var freeCamera = createFreeCamera(scene);
@@ -260,6 +261,22 @@ function createGround(scene) {
 function createLights(scene) {
     var light0 = new BABYLON.DirectionalLight("dir0", new BABYLON.Vector3(-.1, -1, 0), scene); // adding directional ligth(uniform across every direction)
 
+}
+
+function configureAssetManager(scene) {
+    var assetsManager = new BABYLON.AssetsManager(scene);
+
+    assetsManager.onProgress = function(remainingCount, totalCount, lastFinishedTask) {
+        engine.loadingUIText = 'We are loading the scene. ' + remainingCount + ' out of ' + totalCount + ' items still need to be loaded.';
+    };
+    
+    assetsManager.onFinish = function(tasks) {
+        engine.runRenderLoop(function() {
+            scene.toRender();
+        });
+    };
+
+    return assetsManager;
 }
 
 function createFreeCamera(scene) {
@@ -382,7 +399,7 @@ function createTank(scene) {
         var yMovement = 0;
         // console.log(tank.position.y);
         if(tank.position.y >2) {
-            yMovement = -2;
+            tank.moveWithCollisions(new BABYLON.Vector3(0, -2, 0));
         } // so that tank will not rise up the gorund along the wall when colloision occurs
         // tank.moveWithCollisions(new BABYLON.Vector3(0,yMovement,1));// parameters=> velocities in x y z direction
 
@@ -504,7 +521,37 @@ function createTank(scene) {
 }
 
 function createHeroDude(scene) {
-    BABYLON.SceneLoader.ImportMesh("him", "../models/Dude/", "Dude.babylon", scene, onDudeImported); // importing the mesh parameters=> mesh name, location, name of file, scene, onSuccess function
+    // BABYLON.SceneLoader.ImportMesh("him", "../models/Dude/", "Dude.babylon", scene, onDudeImported); // importing the mesh parameters=> mesh name, location, name of file, scene, onSuccess function
+    var meshTask = scene.assetsManager.addMeshTask("DudeTask", "him", "../models/Dude/", "Dude.babylon");
+    console.log(meshTask);
+    meshTask.onSuccess = function (task) {
+        
+        onDudeImported(task.loadedMeshes, task.loadedParticleSystems, task.loadedSkeletons);
+        function onDudeImported (newMeshes, particleSystems, skeletons) {
+
+            newMeshes[0].position = new BABYLON.Vector3(0, 0, 5);  // The original dude
+            newMeshes[0].name = "heroDude"; // changing the name of dude
+            var heroDude = newMeshes[0];
+    
+            for(var i=1;i<heroDude.getChildren().length;i++) {
+                console.log(heroDude.getChildren()[i].name);
+                heroDude.getChildren()[i].name = "clone_".concat(heroDude.getChildren()[i].name);
+                console.log(heroDude.getChildren()[i].name);
+            }
+    
+            scene.beginAnimation(skeletons[0], 0, 120, true, 1.0); // animation of walking ==parameters=> skeleton part ou want to render animation, starting of keyframe, ending of keyframes, loopback, playbackspeed
+            
+            var hero = new Dude(heroDude, 2, -1, scene, .2);
+    
+            scene.dudes = [];
+            scene.dudes[0] = heroDude;
+            for(var q=1; q<=10; q++) {
+                scene.dudes[q] = DoClone(heroDude, skeletons, q);
+                scene.beginAnimation(scene.dudes[q].skeleton, 0, 120, true, 1.0); // animating the dudes
+                var temp = new Dude(scene.dudes[q], 2, q, scene, .2);
+            }
+            }
+    }
 
     function onDudeImported (newMeshes, particleSystems, skeletons) {
 
