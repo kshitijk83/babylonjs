@@ -3,7 +3,10 @@
 
 var canvas;
 var engine; // varibale or obj that deal with the low level webgl
-var scene; // render something on your screen
+// var scene; // render something on your screen
+var Game = {};
+Game.scenes = [];
+Game.activeScene = 0;
 var isWPressed = false;
 var isSPressed = false;
 var isAPressed = false;
@@ -46,7 +49,7 @@ class Dude {
     }
 
     followTank() {
-
+        var scene = this.scene;
         if(!this.bounder) return;
         this.dudeMesh.position = new BABYLON.Vector3(this.bounder.position.x, this.bounder.position.y-this.scaling*Dude.boundingBoxParameters.lengthY/2, this.bounder.position.z);
         var tank = scene.getMeshByName("heroTank");
@@ -61,6 +64,7 @@ class Dude {
     }
 
     moveFPS() {
+        var scene = this.scene;
         scene.activeCamera = scene.activeCameras[0];
         if(scene.activeCamera != scene.followCameraDude && scene.activeCamera != scene.freeCameraDude) {
             this.dudeMesh.animatableObject.pause();
@@ -148,6 +152,7 @@ class Dude {
 
     adjustYPosition()
     {
+        var scene = this.scene;
         var origin = new BABYLON.Vector3(this.dudeMesh.position.x, 1000, this.dudeMesh.position.z);
         var direction = new BABYLON.Vector3(0, -1, 0);
         var ray = new BABYLON.Ray(origin, direction, 10000);
@@ -174,6 +179,7 @@ class Dude {
 
 
     createBoundingBox() {
+        var scene = this.scene;
         var lengthX = Dude.boundingBoxParameters.lengthX;
         var lengthY = Dude.boundingBoxParameters.lengthY;
         var lengthZ = Dude.boundingBoxParameters.lengthZ;
@@ -242,6 +248,7 @@ class Dude {
     }
 
     createDudeParticleSystem() {
+            var scene = this.scene;
         
             // Create a particle system
             var particleSystem = new BABYLON.ParticleSystem("particles", 2000, scene);
@@ -287,6 +294,7 @@ class Dude {
     }
 
     gotKilled() {
+        var scene = this.scene;
 
         scene.assets["dieSound"].play();
         Dude.particleSystem.emitter = this.bounder.position;
@@ -326,23 +334,29 @@ function startGame() {
     engine = new BABYLON.Engine(canvas, true); //draw on this specific canvas
     canvas.style.width = '100%';
     canvas.style.height = '100%';
-    scene = createScene(); // creating a scene that is happening in window
-    modifySettings();
+    startFirstScene();
+}
+
+function startFirstScene() {
+    Game.scenes[Game.activeScene] = createFirstScene(); // creating a scene that is happening in window
+    var scene = Game.scenes[Game.activeScene];
+    
+    modifySettings(scene);
     var tank = scene.getMeshByName("heroTank");
     
     scene.toRender = function(){
-        tank.move();
-        tank.fireCannonBalls();
-        tank.fireLaserBeams();
-        moveHeroDude();
-        moveOtherDudes();
+        tank.move(scene);
+        tank.fireCannonBalls(scene);
+        tank.fireLaserBeams(scene);
+        moveHeroDude(scene);
+        moveOtherDudes(scene);
         scene.render();
     }
     
     scene.assetsManager.load();
 }
 
-var createScene = function(){
+var createFirstScene = function(){
     var scene = new BABYLON.Scene(engine);
     scene.assetsManager = configureAssetManager(scene);
     scene.enablePhysics();
@@ -512,7 +526,7 @@ function animateArcRotateCamera(scene, camera) {
     scene.beginAnimation(camera, 0 , 100 , true);
 }
 
-function modifySettings() {
+function modifySettings(scene) {
     scene.onPointerDown = function() {
         if(!scene.alreadyLocked) {
             console.log("requesting pointer lock")
@@ -530,6 +544,7 @@ function modifySettings() {
     document.addEventListener("pointerlockchange", pointerLockListener);
 
     function pointerLockListener() { // only for chrome
+        var scene = Game.scenes[Game.activeScene];
         var element = document.pointerLockElement || null;
         if(element) {
             scene.alreadyLocked = true;
@@ -542,6 +557,7 @@ function modifySettings() {
 }
 
 document.addEventListener("keydown", function(event) {
+    var scene = Game.scenes[Game.activeScene];
     if(event.key=='w' || event.key=='W') {
         isWPressed=true;
     }
@@ -580,6 +596,7 @@ document.addEventListener("keydown", function(event) {
 });
 
 document.addEventListener("keyup", function(event) {
+    var scene = Game.scenes[Game.activeScene];
     if(event.key=='w' || event.key=='W') {
         isWPressed=false;
     }
@@ -617,7 +634,7 @@ function createTank(scene) {
     tank.canFireCannonballs = true;
     tank.canFireLaser = true;
     // tank.isPickable = false; // builting funciton isPickable(so rays cant pick this tnaks's mesh)
-    tank.move = function() {
+    tank.move = function(scene) {
         scene.activeCamera = scene.activeCameras[0];
         if(scene.activeCamera != scene.followCameraTank) {
             return;
@@ -651,7 +668,7 @@ function createTank(scene) {
     }
 
     tank.canFireCannonballs = true;
-    tank.fireCannonBalls = function() {
+    tank.fireCannonBalls = function(scene) {
         var tank = this;
         if(!isBPressed) return;
         // to fire the tank after half seconds
@@ -702,7 +719,7 @@ function createTank(scene) {
         }, 3000)
     }
 
-    tank.fireLaserBeams = function() {
+    tank.fireLaserBeams = function(scene) {
         var tank = this;
         if(!isRPressed) return;
         // to fire the laser beams after half seconds
@@ -867,14 +884,14 @@ function DoClone(original, skeletons, id) { // making dude clones
     return myClone;
 }
 
-function moveHeroDude() {
+function moveHeroDude(scene) {
     var heroDude = scene.getMeshByName("heroDude");
         if(heroDude) {
             heroDude.Dude.moveFPS();
         }
 }
 
-function moveOtherDudes() {
+function moveOtherDudes(scene) {
     
     if(scene.dudes) {
         for(var q=1; q<scene.dudes.length; q++) {
