@@ -61,6 +61,7 @@ class Dude {
     }
 
     moveFPS() {
+        scene.activeCamera = scene.activeCameras[0];
         if(scene.activeCamera != scene.followCameraDude && scene.activeCamera != scene.freeCameraDude) {
             this.dudeMesh.animatableObject.pause();
             return;
@@ -116,12 +117,33 @@ class Dude {
             var alpha = Math.atan2(-1 * dir.x, -1 * dir.z);
             this.dudeMesh.rotation.y = alpha; // this rotate the herodude mesh with the camera
 
-            this.bounder.position.x = scene.freeCameraDude.position.x;
-            this.bounder.position.z = scene.freeCameraDude.position.z;
+            this.bounder.position.x = scene.freeCameraDude.position.x - this.frontVector.x*1.8;
+            this.bounder.position.z = scene.freeCameraDude.position.z - this.frontVector.z*1.8;
 
         }
         
 
+    }
+
+    fireGun() {
+        var scene = this.scene;
+        scene.assets["gunSound"].play();
+        var width = scene.getEngine().getRenderWidth();
+        var height = scene.getEngine().getRenderHeight();
+        var pickInfo = scene.pick(width/4, height/2, null, false, scene.activeCameras[0]); // automatically render a ray from the middle of the screen to the forward direction
+        //parameters=> width, height, predicate, function, camera
+
+
+        if(pickInfo.pickedMesh) {
+            if(pickInfo.pickedMesh.name.startsWith("bounder")) {
+                // var bounder = pickInfo.pickedMesh;
+                pickInfo.pickedMesh.dudeMesh.Dude.decreaseHealth(pickInfo.pickedPoint);
+
+            } else if (pickInfo.pickedMesh.name.startsWith("clone_")) { // eliminating dude if the ray intersect with any of the submeshes
+                // var child = pickInfo.pickedMesh;
+                pickInfo.pickedMesh.parent.Dude.decreaseHealth(pickInfo.pickedPoint);
+            }
+        }
     }
 
     adjustYPosition()
@@ -135,6 +157,7 @@ class Dude {
             return false;
         });
 
+        if (!pickInfo.pickedPoint) return 0;
         var groundHeight = pickInfo.pickedPoint.y;
         this.dudeMesh.position.y = groundHeight;
         this.bounder.position.y = groundHeight + this.scaling * Dude.boundingBoxParameters.lengthY / 2.0;
@@ -326,6 +349,7 @@ var createScene = function(){
     var ground = createGround(scene);
     var tank = createTank(scene);
     scene.followCameraTank = createFollowCamera(scene, tank);
+    scene.followCameraTank.viewport = new BABYLON.Viewport(0,0,.5,1); // parameters=> x, y, width, height
     scene.activeCamera = scene.followCameraTank; // camera is followcamera now
     createLights(scene);
     createHeroDude(scene);
@@ -372,6 +396,23 @@ function loadSounds(scene) {
     binaryTask.onSuccess = function (task) {
     scene.assets["dieSound"] = new BABYLON.Sound("die", task.data, scene, null, { loop: false }); // null=> callback
     }
+
+    binaryTask = assetsManager.addBinaryFileTask("gunSound", "../sounds/shot.wav");
+    binaryTask.onSuccess = function (task) {
+    scene.assets["gunSound"] = new BABYLON.Sound("gun", task.data, scene, null, { loop: false }); // null=> callback
+    }
+}
+
+function loadCrosshair(scene) {
+    var impact = new BABYLON.Mesh.CreateBox("imapct", .01,scene);
+    impact.parent = scene.freeCameraDude; // making scene.freeCameraDude as a parent
+    scene.freeCameraDude.minZ = .1;
+    impact.position.z += .2;
+
+    impact.material = new BABYLON.StandardMaterial("impact", scene);
+    impact.material.diffuseTexture = new BABYLON.Texture("../images/gunaims.png", scene);
+    impact.material.diffuseTexture.hasAlpha = true;
+    impact.isPickable = false;
 }
 
 function configureAssetManager(scene) {
@@ -428,6 +469,13 @@ function createFollowCamera(scene, target) {
     return camera;
 }
 
+function createArcRotateCamera(scene, target) {
+    var camera = new BABYLON.ArcRotateCamera("arc", 0, 1, 50, target); // parameters=> name, alpha, beta, radius, target
+
+
+    return camera;
+}
+
 function modifySettings() {
     scene.onPointerDown = function() {
         if(!scene.alreadyLocked) {
@@ -435,7 +483,11 @@ function modifySettings() {
             canvas.requestPointerLock(); // lock the cursor onto screen
         }
         else {
-            console.log("we are already locked");
+            scene.activeCamera = scene.activeCameras[0];
+            if(scene.activeCamera == scene.freeCameraDude) {
+                var heroDude = scene.dudes[0];
+                heroDude.Dude.fireGun();
+            }
         }
     }
 
@@ -479,15 +531,15 @@ document.addEventListener("keydown", function(event) {
     }
 
     if(event.key=='t' || event.key=='T') {
-        scene.activeCamera = scene.followCameraTank;
+        scene.activeCameras[0] = scene.followCameraTank;
     }
 
     if(event.key=='y' || event.key=='Y') {
-        scene.activeCamera = scene.followCameraDude;
+        scene.activeCameras[0] = scene.followCameraDude;
     }
 
     if(event.key=='u' || event.key=='U') {
-        scene.activeCamera = scene.freeCameraDude;
+        scene.activeCameras[0] = scene.freeCameraDude;
     }
 });
 
@@ -530,7 +582,7 @@ function createTank(scene) {
     tank.canFireLaser = true;
     // tank.isPickable = false; // builting funciton isPickable(so rays cant pick this tnaks's mesh)
     tank.move = function() {
-
+        scene.activeCamera = scene.activeCameras[0];
         if(scene.activeCamera != scene.followCameraTank) {
             return;
         }
@@ -686,11 +738,16 @@ function createHeroDude(scene) {
             
             var hero = new Dude(heroDude, 2, -1, scene, .2);
             scene.followCameraDude = createFollowCamera(scene, heroDude); // created another follow camera for heroDude
+            scene.followCameraDude.viewport = new BABYLON.Viewport(0,0,.5,1); // parameters=> x, y, width, height
+
+            scene.activeCameras[0] = scene.followCameraDude;
+
             var freeCamPosition = new BABYLON.Vector3(heroDude.position.x,
                 heroDude.position.y + Dude.boundingBoxParameters.lengthY + .2
                 ,heroDude.position.z);
             scene.freeCameraDude = createFreeCamera(scene, freeCamPosition);
-            console.log(scene.freeCameraDude);
+            scene.freeCameraDude.viewport = new BABYLON.Viewport(0,0,.5,1); // parameters=> x, y, width, height
+            loadCrosshair(scene);
             scene.dudes = [];
             scene.dudes[0] = heroDude;
             for(var q=1; q<=10; q++) {
@@ -698,7 +755,12 @@ function createHeroDude(scene) {
                 scene.beginAnimation(scene.dudes[q].skeleton, 0, 120, true, 1.0); // animating the dudes
                 var temp = new Dude(scene.dudes[q], 2, q, scene, .2);
             }
-            }
+
+            scene.arcRotateCamera = createArcRotateCamera(scene, scene.dudes[1]); // parameters=> scene, dude
+            scene.arcRotateCamera.viewport = new BABYLON.Viewport(.5,0,.5,1); // parameters=> x, y, width, height
+
+            scene.activeCameras.push(scene.arcRotateCamera);
+        }
     }
 
     function onDudeImported (newMeshes, particleSystems, skeletons) {
