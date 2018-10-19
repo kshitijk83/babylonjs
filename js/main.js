@@ -476,6 +476,42 @@ function createArcRotateCamera(scene, target) {
     return camera;
 }
 
+function animateArcRotateCamera(scene, camera) {
+    var alphaAnimation = new BABYLON.Animation("alphaAnimation", "alpha", 30,
+    BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_RELATIVE); // parameters=> name, property, keyframes per second, dataype of the property, loopmode(constant, cycle, relative)
+    var betaAnimation = new BABYLON.Animation("betaAnimation", "beta", 10,
+    BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+    var radiusAnimation = new BABYLON.Animation("radiusAnimation", "radius", 10
+    , BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+    // making frames by puuting objects of frames in an array
+    var alphaKeys = [];
+    alphaKeys.push({ frame: 0, value: 0 });
+    alphaKeys.push({ frame: 50, value: Math.PI/2 });
+    alphaKeys.push({frame:100, value: Math.PI});
+    alphaAnimation.setKeys(alphaKeys);
+
+    var betaKeys = [];
+    betaKeys.push({ frame: 0, value: Math.PI/4 });
+    betaKeys.push({ frame: 50, value: Math.PI/2 });
+    betaKeys.push({ frame: 100, value:  Math.PI/4 });
+    betaAnimation.setKeys(betaKeys);
+
+    var radiusKeys = [];
+    radiusKeys.push({ frame: 0, value: 20 });
+    radiusKeys.push({ frame: 50, value: 100 });
+    radiusKeys.push({ frame: 100, value: 20 });
+    radiusAnimation.setKeys(radiusKeys);
+
+
+    camera.animations = [];
+    camera.animations.push(alphaAnimation);
+    camera.animations.push(betaAnimation);
+    camera.animations.push(radiusAnimation);
+
+    scene.beginAnimation(camera, 0 , 100 , true);
+}
+
 function modifySettings() {
     scene.onPointerDown = function() {
         if(!scene.alreadyLocked) {
@@ -758,8 +794,14 @@ function createHeroDude(scene) {
 
             scene.arcRotateCamera = createArcRotateCamera(scene, scene.dudes[1]); // parameters=> scene, dude
             scene.arcRotateCamera.viewport = new BABYLON.Viewport(.5,0,.5,1); // parameters=> x, y, width, height
-
             scene.activeCameras.push(scene.arcRotateCamera);
+            animateArcRotateCamera(scene, scene.arcRotateCamera);
+
+            scene.freeCameraDude.layerMask = 1; // layermasking the herodude bcoz its bitwise and with freecameradude is 0
+            var len = heroDude.getChildren().length;
+            for(var i=0; i<len; i++) {
+                heroDude.getChildren()[i].layerMask = 2;
+            }
         }
     }
 
